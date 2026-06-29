@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RegionMap — Configurador</title>
+<style>
+:root {
+  --bg:#f5f6f8; --surface:#fff; --border:#e2e4e9; --text:#1a1d23;
+  --muted:#6b7280; --accent:#2563eb; --accent-light:#dbeafe;
+  --danger:#dc2626; --success:#059669; --warning:#d97706;
+  --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;}
+/* Login */
+#login-overlay{position:fixed;inset:0;background:rgba(15,20,35,.85);display:flex;align-items:center;justify-content:center;z-index:1000;}
+#login-box{background:var(--surface);border-radius:16px;padding:2.5rem 2rem;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+#login-box h1{font-size:1.3rem;font-weight:600;margin-bottom:.25rem;}
+#login-box p{font-size:.85rem;color:var(--muted);margin-bottom:1.5rem;}
+/* Layout */
+#app{display:flex;flex:1;overflow:hidden;height:calc(100vh - 48px);}
+#topbar{height:48px;display:flex;align-items:center;gap:1rem;padding:0 1rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+#topbar h1{font-size:.95rem;font-weight:600;}
+#topbar a{font-size:.8rem;color:var(--accent);text-decoration:none;}
+#topbar .spacer{flex:1;}
+#topbar #user-info{font-size:.8rem;color:var(--muted);}
+/* Sidebar nav */
+#nav{width:200px;min-width:160px;background:var(--surface);border-right:1px solid var(--border);padding:.75rem .5rem;flex-shrink:0;overflow-y:auto;}
+.nav-section{margin-bottom:1.25rem;}
+.nav-section h3{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:.25rem .5rem;margin-bottom:.25rem;}
+.nav-item{display:block;padding:.4rem .7rem;border-radius:6px;font-size:.82rem;cursor:pointer;color:var(--text);background:none;border:none;width:100%;text-align:left;}
+.nav-item:hover{background:var(--bg);}
+.nav-item.active{background:var(--accent-light);color:var(--accent);font-weight:500;}
+/* Content */
+#content{flex:1;overflow-y:auto;padding:1.5rem;}
+.page{display:none;}
+.page.active{display:block;}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
+.page-header h2{font-size:1.1rem;font-weight:600;}
+/* Cards, forms */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem;}
+.card h3{font-size:.9rem;font-weight:600;margin-bottom:.75rem;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem;}
+.field{display:flex;flex-direction:column;gap:.3rem;}
+.field label{font-size:.75rem;font-weight:500;color:var(--muted);}
+.field input,.field select,.field textarea{padding:.5rem .7rem;border:1px solid var(--border);border-radius:var(--radius);font-size:.85rem;outline:none;font-family:inherit;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);}
+.field textarea{resize:vertical;min-height:70px;}
+.field input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);}
+/* Buttons */
+.btn{padding:.45rem 1rem;border-radius:var(--radius);font-size:.83rem;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);}
+.btn:hover{background:var(--bg);}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{opacity:.9;}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger);}
+.btn-danger:hover{opacity:.9;}
+.btn-sm{padding:.3rem .65rem;font-size:.75rem;}
+/* Table */
+.data-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.data-table th{text-align:left;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:.5rem .75rem;border-bottom:2px solid var(--border);}
+.data-table td{padding:.55rem .75rem;border-bottom:1px solid var(--border);}
+.data-table tr:hover td{background:var(--bg);}
+.data-table .actions{display:flex;gap:.4rem;}
+/* Badge */
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.72rem;font-weight:500;}
+.badge.won{background:#d1fae5;color:#065f46;} .badge.pending{background:#fef3c7;color:#92400e;}
+.badge.contacted{background:#dbeafe;color:#1e40af;} .badge.mature{background:#ede9fe;color:#5b21b6;}
+.badge.admin{background:#fce7f3;color:#9d174d;} .badge.editor{background:#dbeafe;color:#1e40af;} .badge.viewer{background:#f3f4f6;color:#374151;}
+/* History timeline */
+.timeline{list-style:none;padding:0;margin:.5rem 0 0;}
+.timeline li{display:flex;align-items:flex-start;gap:.75rem;padding:.4rem 0;border-bottom:1px solid var(--border);}
+.timeline li:last-child{border-bottom:none;}
+.tl-date{font-size:.72rem;color:var(--muted);min-width:75px;padding-top:2px;}
+.tl-content{font-size:.8rem;}
+/* Toast */
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#1a1d23;color:#fff;padding:.7rem 1.2rem;border-radius:10px;font-size:.85rem;z-index:999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.2);}
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1rem;}
+.tab{padding:.4rem .9rem;font-size:.82rem;cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500;}
+/* Modal */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:500;}
+#modal-overlay.open{display:flex;}
+#modal-box{background:var(--surface);border-radius:16px;padding:1.75rem;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+#modal-box h2{font-size:1.05rem;font-weight:600;margin-bottom:1rem;}
+#modal-box .modal-footer{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;padding-top:.75rem;border-top:1px solid var(--border);}
+/* Checkbox group */
+.check-group{display:flex;flex-wrap:wrap;gap:.5rem;}
+.check-item{display:flex;align-items:center;gap:.35rem;font-size:.82rem;}
+</style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <div id="login-box">
+    <h1>RegionMap — Configurador</h1>
+    <p>Solo admin y editores pueden acceder</p>
+    <div class="field"><label>Usuario</label><input type="text" id="l-user" autocomplete="username"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="l-pass" autocomplete="current-password"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:.5rem" onclick="doLogin()">Entrar</button>
+    <div id="login-error" style="color:#dc2626;font-size:.82rem;margin-top:.5rem;display:none">Sin acceso o credenciales incorrectas</div>
+  </div>
+</div>
+
+<div id="topbar" style="display:none">
+  <h1>RegionMap</h1>
+  <a href="/">← Ver mapa</a>
+  <div class="spacer"></div>
+  <span id="user-info"></span>
+  <button class="btn btn-sm" onclick="doLogout()">Salir</button>
+</div>
+
+<div id="app" style="display:none">
+  <nav id="nav">
+    <div class="nav-section">
+      <h3>Proyectos</h3>
+      <button class="nav-item active" onclick="showPage('projects')">Lista de proyectos</button>
+      <button class="nav-item" onclick="showPage('project-new')">Nuevo proyecto</button>
+    </div>
+    <div class="nav-section">
+      <h3>Clientes</h3>
+      <button class="nav-item" onclick="showPage('clients')">Lista de clientes</button>
+      <button class="nav-item" onclick="showPage('client-new')">Nuevo cliente</button>
+    </div>
+    <div class="nav-section">
+      <h3>Países</h3>
+      <button class="nav-item" onclick="showPage('country-data')">Datos del país</button>
+      <button class="nav-item" onclick="showPage('segments')">Segmentos</button>
+      <button class="nav-item" onclick="showPage('competitors-presence')">Competidores</button>
+    </div>
+    <div class="nav-section" id="admin-nav" style="display:none">
+      <h3>Admin</h3>
+      <button class="nav-item" onclick="showPage('users')">Usuarios</button>
+      <button class="nav-item" onclick="showPage('competitors-master')">Gestionar compet.</button>
+      <button class="nav-item" onclick="showPage('audit')">Auditoría</button>
+    </div>
+  </nav>
+
+  <div id="content">
+
+    <!-- PROJECTS LIST -->
+    <div class="page active" id="page-projects">
+      <div class="page-header"><h2>Proyectos</h2>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <select id="proj-filter-country" onchange="loadProjects()" style="padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem"><option value="">Todos los países</option></select>
+          <select id="proj-filter-phase" onchange="loadProjects()" style="padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem">
+            <option value="">Todas las fases</option>
+            <option value="pending">Pendiente</option><option value="contacted">Contactado</option>
+            <option value="won">Ganado</option><option value="mature">+3 años</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="showPage('project-new')">+ Nuevo</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead><tr><th>Nombre</th><th>País</th><th>Fase</th><th>Valor</th><th>Cliente</th><th>Acciones</th></tr></thead>
+          <tbody id="proj-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NEW/EDIT PROJECT -->
+    <div class="page" id="page-project-new">
+      <div class="page-header"><h2 id="proj-form-title">Nuevo proyecto</h2></div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label>Nombre *</label><input type="text" id="pf-name"></div>
+          <div class="field"><label>País *</label><select id="pf-country"></select></div>
+          <div class="field"><label>Cliente</label><select id="pf-client"><option value="">Sin cliente</option></select></div>
+          <div class="field"><label>Valor (USD)</label><input type="number" id="pf-value" placeholder="0"></div>
+          <div class="field"><label>Fecha inicio</label><input type="date" id="pf-start"></div>
+          <div class="field"><label>Fase actual</label>
+            <select id="pf-phase">
+              <option value="pending">Pendiente</option>
+              <option value="contacted">Contactado</option>
+              <option value="won">Ganado</option>
+              <option value="mature">Más de 3 años</option>
+            </select>
+          </div>
+          <div class="field"><label>Mes del registro</label><input type="month" id="pf-date"></div>
+        </div>
+        <div class="field" style="margin-top:.75rem"><label>Descripción</label><textarea id="pf-desc"></textarea></div>
+        <div style="margin-top:1rem;display:flex;gap:.5rem">
+          <button class="btn btn-primary" onclick="saveProject()">Guardar</button>
+          <button class="btn" onclick="showPage('projects')">Cancelar</button>
+        </div>
+      </div>
+      <!-- Phase history for existing project -->
+      <div class="card" id="proj-history-card" style="display:none">
+        <h3>Historial de fases</h3>
+        <div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+          <select id="ph-phase" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+            <option value="pending">Pendiente</option><option value="contacted">Contactado</option>
+            <option value="won">Ganado</option><option value="mature">+3 años</option>
+          </select>
+          <input type="month" id="ph-date" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          <input type="text" id="ph-notes" placeholder="Notas opcionales" style="flex:1;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          <button class="btn btn-primary btn-sm" onclick="addPhaseSnapshot()">Agregar</button>
+        </div>
+        <ul class="timeline" id="proj-timeline"></ul>
+      </div>
+    </div>
+
+    <!-- CLIENTS LIST -->
+    <div class="page" id="page-clients">
+      <div class="page-header"><h2>Clientes</h2>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <select id="cli-filter-country" onchange="loadClients()" style="padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem"><option value="">Todos los países</option></select>
+          <select id="cli-filter-type" onchange="loadClients()" style="padding:.35rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.8rem">
+            <option value="">Todos los tipos</option>
+            <option value="dealer">Dealer</option><option value="specialized_chain">Cadena esp.</option>
+            <option value="project_manager">Project mgr.</option><option value="developer">Desarrollador</option>
+            <option value="importer">Importador</option><option value="installer">Instalador</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="showPage('client-new')">+ Nuevo</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead><tr><th>Nombre</th><th>País</th><th>Tipo</th><th>Contacto</th><th>Stock</th><th>Vendedores</th><th>Acciones</th></tr></thead>
+          <tbody id="cli-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NEW/EDIT CLIENT -->
+    <div class="page" id="page-client-new">
+      <div class="page-header"><h2 id="cli-form-title">Nuevo cliente</h2></div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label>Nombre *</label><input type="text" id="cf-name"></div>
+          <div class="field"><label>País *</label><select id="cf-country"></select></div>
+          <div class="field"><label>Tipo *</label>
+            <select id="cf-type" onchange="toggleDealerFields()">
+              <option value="dealer">Dealer</option><option value="specialized_chain">Cadena especializada</option>
+              <option value="project_manager">Project manager</option><option value="developer">Desarrollador</option>
+              <option value="importer">Importador</option><option value="installer">Instalador</option>
+            </select>
+          </div>
+          <div class="field"><label>Contacto</label><input type="text" id="cf-contact"></div>
+          <div class="field"><label>Email</label><input type="email" id="cf-email"></div>
+          <div class="field"><label>Teléfono</label><input type="tel" id="cf-phone"></div>
+          <div class="field"><label>Mes del registro</label><input type="month" id="cf-date"></div>
+        </div>
+        <!-- Dealer-specific fields -->
+        <div id="dealer-fields" style="margin-top:.75rem;padding:.75rem;background:var(--bg);border-radius:8px">
+          <div style="font-size:.8rem;font-weight:500;margin-bottom:.5rem;color:var(--muted)">Atributos de dealer</div>
+          <div style="display:flex;gap:1.5rem;align-items:center">
+            <div class="check-item"><input type="checkbox" id="cf-stock"><label for="cf-stock">Tiene stock</label></div>
+            <div class="field" style="flex-direction:row;align-items:center;gap:.5rem">
+              <label style="white-space:nowrap">N.º vendedores:</label>
+              <input type="number" id="cf-salespeople" min="0" style="width:80px">
+            </div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:.75rem"><label>Notas</label><textarea id="cf-notes"></textarea></div>
+        <div style="margin-top:1rem;display:flex;gap:.5rem">
+          <button class="btn btn-primary" onclick="saveClient()">Guardar</button>
+          <button class="btn" onclick="showPage('clients')">Cancelar</button>
+        </div>
+      </div>
+      <!-- Snapshot history -->
+      <div class="card" id="cli-history-card" style="display:none">
+        <h3>Historial de atributos</h3>
+        <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap">
+          <input type="month" id="csh-date" style="padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          <div class="check-item"><input type="checkbox" id="csh-stock"><label for="csh-stock">Stock</label></div>
+          <div class="field" style="flex-direction:row;align-items:center;gap:.4rem">
+            <label style="font-size:.8rem">Vendedores:</label>
+            <input type="number" id="csh-salespeople" min="0" style="width:70px;padding:.35rem .5rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          </div>
+          <input type="text" id="csh-notes" placeholder="Notas" style="flex:1;min-width:120px;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;font-size:.82rem">
+          <button class="btn btn-primary btn-sm" onclick="addClientSnapshot()">Agregar</button>
+        </div>
+        <ul class="timeline" id="cli-timeline"></ul>
+      </div>
+    </div>
+
+    <!-- COUNTRY DATA -->
+    <div class="page" id="page-country-data">
+      <div class="page-header"><h2>Datos del país</h2></div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label>País</label><select id="cd-country" onchange="loadCountryData()"></select></div>
+          <div class="field"><label>Mes</label><input type="month" id="cd-date" oninput="loadCountryData()"></div>
+        </div>
+      </div>
+      <div class="card" id="cd-form-card">
+        <h3>Registrar datos</h3>
+        <div class="form-grid">
+          <div class="field"><label>Población</label><input type="number" id="cd-population" placeholder="0"></div>
+          <div class="field"><label>PIB (millones USD)</label><input type="number" id="cd-gdp" placeholder="0"></div>
+        </div>
+        <div class="field" style="margin-top:.75rem"><label>Notas</label><textarea id="cd-notes" style="min-height:50px"></textarea></div>
+        <button class="btn btn-primary" style="margin-top:.75rem" onclick="saveCountryData()">Guardar registro</button>
+      </div>
+      <div class="card">
+        <h3>Historial</h3>
+        <ul class="timeline" id="cd-timeline"></ul>
+      </div>
+    </div>
+
+    <!-- SEGMENTS -->
+    <div class="page" id="page-segments">
+      <div class="page-header"><h2>Segmentos por país</h2></div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label>País</label><select id="sg-country" onchange="loadSegments()"></select></div>
+          <div class="field"><label>Mes</label><input type="month" id="sg-date" oninput="loadSegments()"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Segmentos activos</h3>
+        <div class="check-group" style="margin-bottom:1rem">
+          <div class="check-item"><input type="checkbox" id="sg-industry"><label for="sg-industry">Industria</label></div>
+          <div class="check-item"><input type="checkbox" id="sg-home"><label for="sg-home">Hogar</label></div>
+          <div class="check-item"><input type="checkbox" id="sg-retail"><label for="sg-retail">Retail</label></div>
+          <div class="check-item"><input type="checkbox" id="sg-hospitality"><label for="sg-hospitality">Hospitality</label></div>
+          <div class="check-item"><input type="checkbox" id="sg-datacenter"><label for="sg-datacenter">Data Center</label></div>
+          <div class="check-item"><input type="checkbox" id="sg-health"><label for="sg-health">Salud</label></div>
+        </div>
+        <div class="field"><label>Notas</label><textarea id="sg-notes" style="min-height:50px"></textarea></div>
+        <button class="btn btn-primary" style="margin-top:.75rem" onclick="saveSegments()">Guardar</button>
+      </div>
+      <div class="card">
+        <h3>Historial</h3>
+        <ul class="timeline" id="sg-timeline"></ul>
+      </div>
+    </div>
+
+    <!-- COMPETITORS PRESENCE -->
+    <div class="page" id="page-competitors-presence">
+      <div class="page-header"><h2>Presencia de competidores</h2></div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label>País</label><select id="cp-country" onchange="loadCompPresence()"></select></div>
+          <div class="field"><label>Mes</label><input type="month" id="cp-date" oninput="loadCompPresence()"></div>
+          <div class="field"><label>Competidor</label><select id="cp-competitor"></select></div>
+        </div>
+        <div style="margin-top:.75rem">
+          <div class="check-group">
+            <div class="check-item"><input type="checkbox" id="cp-direct"><label for="cp-direct">Presencia directa</label></div>
+            <div class="check-item"><input type="checkbox" id="cp-factory"><label for="cp-factory">Vende desde fábrica</label></div>
+            <div class="check-item"><input type="checkbox" id="cp-dealers"><label for="cp-dealers">A través de dealers</label></div>
+            <div class="check-item"><input type="checkbox" id="cp-stock"><label for="cp-stock">Stock en el país</label></div>
+          </div>
+          <div class="field" style="margin-top:.6rem"><label>Notas</label><textarea id="cp-notes" style="min-height:50px"></textarea></div>
+          <button class="btn btn-primary" style="margin-top:.6rem" onclick="saveCompPresence()">Guardar registro</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Situación actual en este país</h3>
+        <div id="cp-current"></div>
+      </div>
+      <div class="card">
+        <h3>Historial</h3>
+        <ul class="timeline" id="cp-timeline"></ul>
+      </div>
+    </div>
+
+    <!-- COMPETITORS MASTER -->
+    <div class="page" id="page-competitors-master">
+      <div class="page-header"><h2>Gestionar competidores</h2></div>
+      <div class="card">
+        <h3>Agregar competidor</h3>
+        <div class="form-grid">
+          <div class="field"><label>Nombre</label><input type="text" id="cm-name"></div>
+          <div class="field"><label>Notas</label><input type="text" id="cm-notes"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:.75rem" onclick="addCompetitor()">Agregar</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table"><thead><tr><th>Nombre</th><th>Notas</th></tr></thead>
+        <tbody id="comp-master-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="page-header"><h2>Usuarios</h2>
+        <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ Nuevo usuario</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Creado</th><th>Acciones</th></tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AUDIT -->
+    <div class="page" id="page-audit">
+      <div class="page-header"><h2>Registro de auditoría</h2></div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="data-table">
+          <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>ID</th></tr></thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h2>Nuevo usuario</h2>
+    <div class="form-grid">
+      <div class="field"><label>Usuario *</label><input type="text" id="nu-username"></div>
+      <div class="field"><label>Nombre</label><input type="text" id="nu-name"></div>
+      <div class="field"><label>Contraseña *</label><input type="password" id="nu-password"></div>
+      <div class="field"><label>Rol</label>
+        <select id="nu-role">
+          <option value="viewer">Viewer (solo lectura)</option>
+          <option value="editor">Editor</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="createUser()">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+let TOKEN = localStorage.getItem('rm_token');
+let USER  = JSON.parse(localStorage.getItem('rm_user')||'null');
+let editingProjectId = null;
+let editingClientId  = null;
+let allCountries     = [];
+let allCompetitors   = [];
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + url, opts);
+  if (r.status === 401) { doLogout(); return null; }
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    showToast(e.error || 'Error al guardar', 'danger');
+    return null;
+  }
+  return r.json();
+}
+
+async function doLogin() {
+  const username = document.getElementById('l-user').value.trim();
+  const password = document.getElementById('l-pass').value;
+  const res = await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+  if (!res.ok) { document.getElementById('login-error').style.display='block'; return; }
+  const data = await res.json();
+  if (!['admin','editor'].includes(data.user.role)) {
+    document.getElementById('login-error').style.display='block';
+    document.getElementById('login-error').textContent='Solo admin y editores pueden usar el configurador';
+    return;
+  }
+  TOKEN = data.token; USER = data.user;
+  localStorage.setItem('rm_token', TOKEN);
+  localStorage.setItem('rm_user', JSON.stringify(USER));
+  showApp();
+}
+
+function doLogout() { localStorage.removeItem('rm_token'); localStorage.removeItem('rm_user'); location.reload(); }
+
+async function showApp() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-info').textContent = USER.name || USER.username;
+  if (USER.role === 'admin') document.getElementById('admin-nav').style.display = '';
+
+  // Load countries and competitors
+  allCountries = await api('GET','/api/countries') || [];
+  allCompetitors = await api('GET','/api/countries/competitors/all') || [];
+
+  // Populate country selectors
+  ['proj-filter-country','cli-filter-country','cd-country','sg-country','cp-country','pf-country','cf-country'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const hasAll = id.includes('filter');
+    el.innerHTML = (hasAll ? '<option value="">Todos los países</option>' : '') + allCountries.map(c=>`<option value="${c.code}">${c.name}</option>`).join('');
+  });
+
+  // Populate competitor selector
+  const cpComp = document.getElementById('cp-competitor');
+  cpComp.innerHTML = allCompetitors.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
+  // Default dates
+  const now = new Date().toISOString().slice(0,7);
+  ['pf-date','cf-date','cd-date','sg-date','cp-date','ph-date','csh-date'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = now;
+  });
+
+  loadProjects();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')===`showPage('${page}')`) n.classList.add('active'); });
+
+  if (page==='projects')             loadProjects();
+  else if (page==='clients')         loadClients();
+  else if (page==='country-data')    loadCountryData();
+  else if (page==='segments')        loadSegments();
+  else if (page==='competitors-presence') loadCompPresence();
+  else if (page==='competitors-master')   loadCompetitorsMaster();
+  else if (page==='users')           loadUsers();
+  else if (page==='audit')           loadAudit();
+  else if (page==='project-new')     resetProjectForm();
+  else if (page==='client-new')      resetClientForm();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type==='danger' ? '#dc2626' : type==='warning' ? '#d97706' : '#1a1d23';
+  t.style.display = 'block';
+  setTimeout(()=>t.style.display='none', 3000);
+}
+
+// ── PROJECTS ──────────────────────────────────────────────────────────────
+async function loadProjects() {
+  const country = document.getElementById('proj-filter-country').value;
+  const phase   = document.getElementById('proj-filter-phase').value;
+  let url = '/api/projects?';
+  if (country) url += `country=${country}&`;
+  if (phase)   url += `phase=${phase}&`;
+  const projs = await api('GET', url) || [];
+  const tb = document.getElementById('proj-tbody');
+  tb.innerHTML = projs.map(p=>`
+    <tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.country_name||p.country_code}</td>
+      <td><span class="badge ${p.phase||'pending'}">${p.phase||'pendiente'}</span></td>
+      <td>${p.value_usd?'$'+Number(p.value_usd).toLocaleString():'—'}</td>
+      <td>${p.client_name||'—'}</td>
+      <td class="actions">
+        <button class="btn btn-sm" onclick="editProject(${p.id})">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteProject(${p.id})">Borrar</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:1rem">Sin proyectos</td></tr>';
+}
+
+function resetProjectForm() {
+  editingProjectId = null;
+  document.getElementById('proj-form-title').textContent = 'Nuevo proyecto';
+  ['pf-name','pf-value','pf-desc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pf-phase').value = 'pending';
+  document.getElementById('proj-history-card').style.display = 'none';
+  // Load clients for selector
+  loadClientsForSelect();
+}
+
+async function loadClientsForSelect() {
+  const clients = await api('GET','/api/clients') || [];
+  const sel = document.getElementById('pf-client');
+  sel.innerHTML = '<option value="">Sin cliente</option>' + clients.map(c=>`<option value="${c.id}">${c.name} (${c.country_code})</option>`).join('');
+}
+
+async function editProject(id) {
+  const p = await api('GET', `/api/projects/${id}`);
+  if (!p) return;
+  editingProjectId = id;
+  await loadClientsForSelect();
+  document.getElementById('proj-form-title').textContent = 'Editar proyecto';
+  document.getElementById('pf-name').value    = p.name;
+  document.getElementById('pf-country').value = p.country_code;
+  document.getElementById('pf-value').value   = p.value_usd||'';
+  document.getElementById('pf-start').value   = p.start_date||'';
+  document.getElementById('pf-desc').value    = p.description||'';
+  document.getElementById('pf-client').value  = p.client_id||'';
+  // Load history
+  document.getElementById('proj-history-card').style.display = '';
+  await loadProjectTimeline(id);
+  showPage('project-new');
+}
+
+async function loadProjectTimeline(id) {
+  const hist = await api('GET', `/api/projects/${id}/history`) || [];
+  const PHASE_LABELS = {pending:'Pendiente',contacted:'Contactado',won:'Ganado',mature:'+3 años'};
+  document.getElementById('proj-timeline').innerHTML = hist.reverse().map(h=>
+    `<li><span class="tl-date">${h.snapshot_date}</span><span class="tl-content"><span class="badge ${h.phase}">${PHASE_LABELS[h.phase]||h.phase}</span>${h.notes?` — ${h.notes}`:''}</span></li>`
+  ).join('') || '<li style="color:var(--muted);font-size:.8rem">Sin historial</li>';
+}
+
+async function saveProject() {
+  const body = {
+    name:        document.getElementById('pf-name').value.trim(),
+    country_code:document.getElementById('pf-country').value,
+    client_id:   document.getElementById('pf-client').value||null,
+    value_usd:   parseFloat(document.getElementById('pf-value').value)||null,
+    start_date:  document.getElementById('pf-start').value||null,
+    description: document.getElementById('pf-desc').value.trim()||null,
+    phase:       document.getElementById('pf-phase').value,
+    snapshot_date: document.getElementById('pf-date').value,
+  };
+  if (!body.name || !body.country_code) { showToast('Nombre y país son obligatorios','danger'); return; }
+
+  if (editingProjectId) {
+    await api('PUT', `/api/projects/${editingProjectId}`, body);
+  } else {
+    await api('POST', '/api/projects', body);
+  }
+  showToast('Proyecto guardado ✓');
+  showPage('projects');
+}
+
+async function addPhaseSnapshot() {
+  if (!editingProjectId) return;
+  const body = { phase: document.getElementById('ph-phase').value, snapshot_date: document.getElementById('ph-date').value, notes: document.getElementById('ph-notes').value };
+  await api('POST', `/api/projects/${editingProjectId}/snapshot`, body);
+  showToast('Fase registrada ✓');
+  await loadProjectTimeline(editingProjectId);
+}
+
+async function deleteProject(id) {
+  if (!confirm('¿Eliminar este proyecto y todo su historial?')) return;
+  await api('DELETE', `/api/projects/${id}`);
+  showToast('Proyecto eliminado');
+  loadProjects();
+}
+
+// ── CLIENTS ───────────────────────────────────────────────────────────────
+async function loadClients() {
+  const country = document.getElementById('cli-filter-country').value;
+  const type    = document.getElementById('cli-filter-type').value;
+  let url = '/api/clients?';
+  if (country) url += `country=${country}&`;
+  if (type)    url += `type=${type}&`;
+  const cls = await api('GET', url) || [];
+  const tb = document.getElementById('cli-tbody');
+  tb.innerHTML = cls.map(c=>`
+    <tr>
+      <td><strong>${c.name}</strong></td>
+      <td>${c.country_code}</td>
+      <td>${c.client_type.replace('_',' ')}</td>
+      <td>${c.contact_name||'—'}</td>
+      <td>${c.client_type==='dealer'?(c.has_stock?'✅':'❌'):'—'}</td>
+      <td>${c.client_type==='dealer'?(c.num_salespeople||0):'—'}</td>
+      <td class="actions">
+        <button class="btn btn-sm" onclick="editClient(${c.id})">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteClient(${c.id})">Borrar</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:1rem">Sin clientes</td></tr>';
+}
+
+function resetClientForm() {
+  editingClientId = null;
+  document.getElementById('cli-form-title').textContent = 'Nuevo cliente';
+  ['cf-name','cf-contact','cf-email','cf-phone','cf-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cf-stock').checked = false;
+  document.getElementById('cf-salespeople').value = '0';
+  document.getElementById('cli-history-card').style.display = 'none';
+  toggleDealerFields();
+}
+
+function toggleDealerFields() {
+  const isDealer = document.getElementById('cf-type').value === 'dealer';
+  document.getElementById('dealer-fields').style.display = isDealer ? '' : 'none';
+}
+
+async function editClient(id) {
+  const c = await api('GET', `/api/clients/${id}`);
+  if (!c) return;
+  editingClientId = id;
+  document.getElementById('cli-form-title').textContent = 'Editar cliente';
+  document.getElementById('cf-name').value    = c.name;
+  document.getElementById('cf-country').value = c.country_code;
+  document.getElementById('cf-type').value    = c.client_type;
+  document.getElementById('cf-contact').value = c.contact_name||'';
+  document.getElementById('cf-email').value   = c.contact_email||'';
+  document.getElementById('cf-phone').value   = c.contact_phone||'';
+  document.getElementById('cf-notes').value   = c.notes||'';
+  toggleDealerFields();
+  document.getElementById('cli-history-card').style.display = '';
+  await loadClientTimeline(id);
+  showPage('client-new');
+}
+
+async function loadClientTimeline(id) {
+  const hist = await api('GET', `/api/clients/${id}/history`) || [];
+  document.getElementById('cli-timeline').innerHTML = hist.reverse().map(h=>
+    `<li><span class="tl-date">${h.snapshot_date}</span><span class="tl-content">Stock: ${h.has_stock?'✅':'❌'} · Vendedores: ${h.num_salespeople||0}${h.notes?` · ${h.notes}`:''}</span></li>`
+  ).join('') || '<li style="color:var(--muted);font-size:.8rem">Sin historial</li>';
+}
+
+async function saveClient() {
+  const body = {
+    name:         document.getElementById('cf-name').value.trim(),
+    country_code: document.getElementById('cf-country').value,
+    client_type:  document.getElementById('cf-type').value,
+    contact_name: document.getElementById('cf-contact').value.trim()||null,
+    contact_email:document.getElementById('cf-email').value.trim()||null,
+    contact_phone:document.getElementById('cf-phone').value.trim()||null,
+    notes:        document.getElementById('cf-notes').value.trim()||null,
+  };
+  if (!body.name || !body.country_code) { showToast('Nombre y país son obligatorios','danger'); return; }
+
+  let clientId = editingClientId;
+  if (clientId) {
+    await api('PUT', `/api/clients/${clientId}`, body);
+  } else {
+    const r = await api('POST', '/api/clients', body);
+    clientId = r?.id;
+  }
+
+  // Save initial snapshot for dealers
+  if (body.client_type === 'dealer' && clientId) {
+    await api('POST', `/api/clients/${clientId}/snapshot`, {
+      snapshot_date:  document.getElementById('cf-date').value,
+      has_stock:      document.getElementById('cf-stock').checked,
+      num_salespeople:parseInt(document.getElementById('cf-salespeople').value)||0,
+    });
+  }
+  showToast('Cliente guardado ✓');
+  showPage('clients');
+}
+
+async function addClientSnapshot() {
+  if (!editingClientId) return;
+  const body = {
+    snapshot_date:  document.getElementById('csh-date').value,
+    has_stock:      document.getElementById('csh-stock').checked,
+    num_salespeople:parseInt(document.getElementById('csh-salespeople').value)||0,
+    notes:          document.getElementById('csh-notes').value.trim()||null,
+  };
+  await api('POST', `/api/clients/${editingClientId}/snapshot`, body);
+  showToast('Snapshot agregado ✓');
+  await loadClientTimeline(editingClientId);
+}
+
+async function deleteClient(id) {
+  if (!confirm('¿Eliminar este cliente y todo su historial?')) return;
+  await api('DELETE', `/api/clients/${id}`);
+  showToast('Cliente eliminado');
+  loadClients();
+}
+
+// ── COUNTRY DATA ──────────────────────────────────────────────────────────
+async function loadCountryData() {
+  const code = document.getElementById('cd-country').value;
+  const date = document.getElementById('cd-date').value;
+  if (!code) return;
+  const d = await api('GET', `/api/countries/${code}/data?date=${date}`);
+  if (d) {
+    document.getElementById('cd-population').value = d.population||'';
+    document.getElementById('cd-gdp').value = d.gdp_usd||'';
+    document.getElementById('cd-notes').value = d.notes||'';
+  }
+  const hist = await api('GET', `/api/countries/${code}/data/history`) || [];
+  document.getElementById('cd-timeline').innerHTML = hist.reverse().map(h=>
+    `<li><span class="tl-date">${h.snapshot_date}</span><span class="tl-content">Pob: ${(h.population||0).toLocaleString()} · PIB: $${(h.gdp_usd||0).toLocaleString()}M${h.notes?` · ${h.notes}`:''}</span></li>`
+  ).join('') || '<li style="color:var(--muted);font-size:.8rem">Sin historial</li>';
+}
+
+async function saveCountryData() {
+  const code = document.getElementById('cd-country').value;
+  const body = {
+    snapshot_date: document.getElementById('cd-date').value,
+    population:    parseInt(document.getElementById('cd-population').value)||null,
+    gdp_usd:       parseFloat(document.getElementById('cd-gdp').value)||null,
+    notes:         document.getElementById('cd-notes').value.trim()||null,
+  };
+  await api('POST', `/api/countries/${code}/data`, body);
+  showToast('Datos guardados ✓');
+  loadCountryData();
+}
+
+// ── SEGMENTS ──────────────────────────────────────────────────────────────
+async function loadSegments() {
+  const code = document.getElementById('sg-country').value;
+  const date = document.getElementById('sg-date').value;
+  if (!code) return;
+  const s = await api('GET', `/api/countries/${code}/segments?date=${date}`);
+  if (s) {
+    ['industry','home','retail','hospitality'].forEach(f=>document.getElementById('sg-'+f).checked=!!s[f]);
+    document.getElementById('sg-datacenter').checked = !!s.data_center;
+    document.getElementById('sg-health').checked     = !!s.health;
+    document.getElementById('sg-notes').value        = s.notes||'';
+  } else {
+    ['industry','home','retail','hospitality','datacenter','health'].forEach(f=>document.getElementById('sg-'+f).checked=false);
+  }
+  const hist = await api('GET', `/api/countries/${code}/segments/history`) || [];
+  const fields = ['industry','home','retail','hospitality','data_center','health'];
+  const lbls   = {industry:'Ind',home:'Hog',retail:'Ret',hospitality:'Hos',data_center:'DC',health:'Sal'};
+  document.getElementById('sg-timeline').innerHTML = hist.reverse().map(h=>
+    `<li><span class="tl-date">${h.snapshot_date}</span><span class="tl-content">${fields.filter(f=>h[f]).map(f=>lbls[f]).join(' · ')||'Ninguno'}</span></li>`
+  ).join('') || '<li style="color:var(--muted);font-size:.8rem">Sin historial</li>';
+}
+
+async function saveSegments() {
+  const code = document.getElementById('sg-country').value;
+  const body = {
+    snapshot_date: document.getElementById('sg-date').value,
+    industry:     document.getElementById('sg-industry').checked,
+    home:         document.getElementById('sg-home').checked,
+    retail:       document.getElementById('sg-retail').checked,
+    hospitality:  document.getElementById('sg-hospitality').checked,
+    data_center:  document.getElementById('sg-datacenter').checked,
+    health:       document.getElementById('sg-health').checked,
+    notes:        document.getElementById('sg-notes').value.trim()||null,
+  };
+  await api('POST', `/api/countries/${code}/segments`, body);
+  showToast('Segmentos guardados ✓');
+  loadSegments();
+}
+
+// ── COMPETITOR PRESENCE ───────────────────────────────────────────────────
+async function loadCompPresence() {
+  const code = document.getElementById('cp-country').value;
+  const date = document.getElementById('cp-date').value;
+  if (!code) return;
+  const comps = await api('GET', `/api/countries/${code}/competitors?date=${date}`) || [];
+  const hist  = await api('GET', `/api/countries/${code}/competitors/history`) || [];
+
+  document.getElementById('cp-current').innerHTML = comps.length
+    ? comps.map(c=>`<div class="data-row" style="font-size:.8rem"><strong>${c.competitor_name}</strong><span style="color:var(--muted)">${[c.direct_presence&&'Directa',c.seller_factory&&'Fábrica',c.through_dealers&&'Dealers',c.stock_in_country&&'Stock'].filter(Boolean).join(' · ')||'Sin presencia'}</span></div>`).join('')
+    : '<div style="color:var(--muted);font-size:.82rem">Sin registros para este período.</div>';
+
+  document.getElementById('cp-timeline').innerHTML = hist.reverse().map(h=>
+    `<li><span class="tl-date">${h.snapshot_date}</span><span class="tl-content"><strong>${h.competitor_name}</strong>: ${[h.direct_presence&&'Directa',h.seller_factory&&'Fábrica',h.through_dealers&&'Dealers',h.stock_in_country&&'Stock'].filter(Boolean).join(' · ')||'Sin presencia'}</span></li>`
+  ).join('') || '<li style="color:var(--muted);font-size:.8rem">Sin historial</li>';
+}
+
+async function saveCompPresence() {
+  const code = document.getElementById('cp-country').value;
+  const body = {
+    competitor_id:   parseInt(document.getElementById('cp-competitor').value),
+    snapshot_date:   document.getElementById('cp-date').value,
+    direct_presence: document.getElementById('cp-direct').checked,
+    seller_factory:  document.getElementById('cp-factory').checked,
+    through_dealers: document.getElementById('cp-dealers').checked,
+    stock_in_country:document.getElementById('cp-stock').checked,
+    notes:           document.getElementById('cp-notes').value.trim()||null,
+  };
+  await api('POST', `/api/countries/${code}/competitors`, body);
+  showToast('Presencia guardada ✓');
+  loadCompPresence();
+}
+
+// ── COMPETITORS MASTER ────────────────────────────────────────────────────
+async function loadCompetitorsMaster() {
+  const comps = await api('GET','/api/countries/competitors/all') || [];
+  document.getElementById('comp-master-tbody').innerHTML = comps.map(c=>
+    `<tr><td><strong>${c.name}</strong></td><td>${c.notes||'—'}</td></tr>`
+  ).join('') || '<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:1rem">Sin competidores</td></tr>';
+}
+
+async function addCompetitor() {
+  const name = document.getElementById('cm-name').value.trim();
+  if (!name) return;
+  await api('POST','/api/countries/competitors/all',{name,notes:document.getElementById('cm-notes').value.trim()||null});
+  showToast('Competidor agregado ✓');
+  document.getElementById('cm-name').value=''; document.getElementById('cm-notes').value='';
+  allCompetitors = await api('GET','/api/countries/competitors/all')||[];
+  const cpComp = document.getElementById('cp-competitor');
+  cpComp.innerHTML = allCompetitors.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  loadCompetitorsMaster();
+}
+
+// ── USERS ─────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const users = await api('GET','/api/auth/users') || [];
+  const ROLE_LBL = {admin:'Admin',editor:'Editor',viewer:'Viewer'};
+  document.getElementById('users-tbody').innerHTML = users.map(u=>`
+    <tr>
+      <td><strong>${u.username}</strong></td>
+      <td>${u.name||'—'}</td>
+      <td><span class="badge ${u.role}">${ROLE_LBL[u.role]||u.role}</span></td>
+      <td style="font-size:.75rem;color:var(--muted)">${u.created_at?.slice(0,10)||''}</td>
+      <td>${u.id!==USER.id?`<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Eliminar</button>`:'<em style="color:var(--muted);font-size:.75rem">Tú</em>'}</td>
+    </tr>`).join('');
+}
+
+function openUserModal() { document.getElementById('modal-overlay').classList.add('open'); }
+function closeModal()    { document.getElementById('modal-overlay').classList.remove('open'); }
+
+async function createUser() {
+  const body = { username:document.getElementById('nu-username').value.trim(), password:document.getElementById('nu-password').value, role:document.getElementById('nu-role').value, name:document.getElementById('nu-name').value.trim()||null };
+  if (!body.username||!body.password) { showToast('Usuario y contraseña requeridos','danger'); return; }
+  await api('POST','/api/auth/users',body);
+  showToast('Usuario creado ✓');
+  closeModal();
+  loadUsers();
+}
+
+async function deleteUser(id) {
+  if (!confirm('¿Eliminar este usuario?')) return;
+  await api('DELETE',`/api/auth/users/${id}`);
+  showToast('Usuario eliminado');
+  loadUsers();
+}
+
+// ── AUDIT ─────────────────────────────────────────────────────────────────
+async function loadAudit() {
+  const rows = await api('GET','/api/audit') || [];
+  document.getElementById('audit-tbody').innerHTML = rows.map(r=>`
+    <tr>
+      <td style="white-space:nowrap;font-size:.75rem;color:var(--muted)">${r.created_at?.slice(0,16)||''}</td>
+      <td>${r.username||'—'}</td>
+      <td><span class="badge ${r.action==='INSERT'?'won':r.action==='DELETE'?'mature':'contacted'}">${r.action}</span></td>
+      <td style="font-size:.78rem">${r.entity}</td>
+      <td style="font-size:.78rem;color:var(--muted)">${r.entity_id||'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:1rem">Sin registros</td></tr>';
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+if (TOKEN) {
+  fetch(API+'/api/auth/me',{headers:{Authorization:'Bearer '+TOKEN}})
+    .then(r=>r.ok?r.json():null)
+    .then(u=>{ if(u&&['admin','editor'].includes(u.role)){USER=u;showApp();}})
+    .catch(()=>{});
+}
+document.getElementById('l-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+</script>
+</body>
+</html>
