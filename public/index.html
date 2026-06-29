@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RegionMap — Dashboard</title>
+<style>
+:root {
+  --ocean: #c8dff0;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --border: #e2e4e9;
+  --text: #1a1d23;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --radius: 8px;
+
+  /* phase colors */
+  --c-pending:   #f59e0b;
+  --c-contacted: #3b82f6;
+  --c-won:       #10b981;
+  --c-mature:    #8b5cf6;
+
+  /* client type colors */
+  --c-dealer:    #f97316;
+  --c-chain:     #ec4899;
+  --c-pm:        #06b6d4;
+  --c-dev:       #84cc16;
+  --c-importer:  #a78bfa;
+  --c-installer: #fb7185;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Login overlay ─────────────────────────────────────────── */
+#login-overlay {
+  position: fixed; inset: 0; background: rgba(15,20,35,0.85);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+#login-box {
+  background: var(--surface); border-radius: 16px; padding: 2.5rem 2rem;
+  width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+#login-box h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: .25rem; }
+#login-box p  { font-size: .85rem; color: var(--muted); margin-bottom: 1.5rem; }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-size: .8rem; font-weight: 500; margin-bottom: .35rem; color: var(--muted); }
+.field input { width: 100%; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: .9rem; outline: none; }
+.field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.btn-primary { width: 100%; padding: .65rem; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-size: .9rem; font-weight: 500; cursor: pointer; }
+.btn-primary:hover { opacity: .9; }
+#login-error { color: #dc2626; font-size: .82rem; margin-top: .75rem; display: none; }
+
+/* ── Top bar ───────────────────────────────────────────────── */
+#topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1rem; height: 48px; background: var(--surface);
+  border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 1rem;
+  flex-wrap: wrap;
+}
+#topbar h1 { font-size: .95rem; font-weight: 600; white-space: nowrap; }
+#topbar .kpis { display: flex; gap: .5rem; flex-wrap: wrap; }
+.kpi { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 10px; font-size: .78rem; color: var(--muted); }
+.kpi strong { color: var(--text); }
+#topbar-right { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; }
+#user-badge { font-size: .8rem; color: var(--muted); }
+.btn-sm { padding: .3rem .7rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: .78rem; cursor: pointer; }
+.btn-sm:hover { background: var(--bg); }
+.btn-sm.accent { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ── Time selector bar ─────────────────────────────────────── */
+#timebar {
+  display: flex; align-items: center; gap: .75rem; padding: .4rem 1rem;
+  background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap;
+}
+#timebar label { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+#timebar select, #timebar input { padding: .25rem .5rem; border: 1px solid var(--border); border-radius: 6px; font-size: .78rem; outline: none; }
+#timebar input[type=month] { font-size: .78rem; }
+.time-mode { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.time-mode button { padding: .25rem .7rem; border: none; background: var(--surface); font-size: .75rem; cursor: pointer; }
+.time-mode button.active { background: var(--accent); color: white; }
+#timebar .sep { width: 1px; background: var(--border); height: 20px; }
+
+/* ── Main layout ───────────────────────────────────────────── */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Left panel: layers ────────────────────────────────────── */
+#left-panel {
+  width: 220px; min-width: 180px; background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
+}
+.panel-section { padding: .75rem; border-bottom: 1px solid var(--border); }
+.panel-section h3 { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .6rem; }
+.layer-row { display: flex; align-items: center; gap: .5rem; padding: .25rem .2rem; cursor: pointer; border-radius: 5px; user-select: none; }
+.layer-row:hover { background: var(--bg); }
+.layer-row input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.layer-row .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.layer-row .diamond { width: 9px; height: 9px; transform: rotate(45deg); flex-shrink: 0; }
+.layer-row span { font-size: .8rem; }
+.sub-filter { padding-left: 1.5rem; }
+.filter-chip { display: inline-block; margin: 2px; padding: 2px 8px; border-radius: 10px; font-size: .72rem; border: 1px solid var(--border); cursor: pointer; background: var(--surface); }
+.filter-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ── Map container ─────────────────────────────────────────── */
+#map-container { flex: 1; position: relative; background: var(--ocean); overflow: hidden; }
+#map-svg { width: 100%; height: 100%; display: block; }
+.country-path { stroke: #fff; stroke-width: .8; cursor: pointer; transition: filter .15s; }
+.country-path:hover { filter: brightness(.88); stroke-width: 1.5; }
+.country-path.selected { stroke: var(--accent); stroke-width: 2; }
+.island-el { stroke: #fff; stroke-width: .7; cursor: pointer; transition: filter .15s; }
+.island-el:hover { filter: brightness(.88); stroke-width: 1.2; }
+
+/* ── Tooltip ───────────────────────────────────────────────── */
+#tooltip {
+  position: absolute; pointer-events: none; display: none;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: .6rem .85rem; font-size: .8rem;
+  max-width: 220px; box-shadow: 0 4px 20px rgba(0,0,0,.1); z-index: 50;
+}
+#tooltip h4 { font-size: .85rem; font-weight: 600; margin-bottom: .3rem; }
+#tooltip .t-row { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: .15rem; }
+#tooltip .t-key { color: var(--muted); }
+
+/* ── Right panel: detail ───────────────────────────────────── */
+#right-panel {
+  width: 280px; min-width: 240px; background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+}
+#detail-header { padding: .75rem; border-bottom: 1px solid var(--border); }
+#detail-header h2 { font-size: .95rem; font-weight: 600; }
+#detail-header p  { font-size: .78rem; color: var(--muted); }
+#detail-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.dtab { flex: 1; padding: .4rem .2rem; font-size: .75rem; text-align: center; cursor: pointer; border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent; }
+.dtab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+#detail-body { flex: 1; overflow-y: auto; padding: .75rem; }
+.detail-section { margin-bottom: 1rem; }
+.detail-section h4 { font-size: .75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
+.data-row { display: flex; justify-content: space-between; padding: .25rem 0; border-bottom: 1px solid var(--border); font-size: .8rem; }
+.data-row:last-child { border-bottom: none; }
+.data-key { color: var(--muted); }
+.data-val { font-weight: 500; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: .72rem; font-weight: 500; }
+.badge.won       { background: #d1fae5; color: #065f46; }
+.badge.pending   { background: #fef3c7; color: #92400e; }
+.badge.contacted { background: #dbeafe; color: #1e40af; }
+.badge.mature    { background: #ede9fe; color: #5b21b6; }
+.item-card { background: var(--bg); border-radius: 6px; padding: .5rem .65rem; margin-bottom: .4rem; font-size: .8rem; }
+.item-card .ic-name { font-weight: 500; margin-bottom: .15rem; }
+.item-card .ic-meta { font-size: .72rem; color: var(--muted); }
+.seg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; }
+.seg-tag { padding: .2rem .5rem; border-radius: 5px; font-size: .75rem; text-align: center; }
+.seg-tag.on  { background: #d1fae5; color: #065f46; }
+.seg-tag.off { background: var(--bg); color: var(--muted); }
+.comp-row { display: flex; align-items: center; gap: .4rem; padding: .25rem 0; font-size: .78rem; border-bottom: 1px solid var(--border); }
+.comp-row:last-child { border-bottom: none; }
+.comp-icon { font-size: .65rem; padding: 1px 5px; border-radius: 3px; background: #fef2f2; color: #991b1b; }
+.comp-icon.ok { background: #f0fdf4; color: #166534; }
+#detail-empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 2rem 1rem; }
+
+/* ── Map controls ──────────────────────────────────────────── */
+#map-controls { position: absolute; bottom: 12px; right: 12px; display: flex; flex-direction: column; gap: 4px; }
+.mc-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+.mc-btn:hover { background: var(--bg); }
+
+/* ── Legend ────────────────────────────────────────────────── */
+#legend { position: absolute; bottom: 12px; left: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .65rem; font-size: .72rem; }
+.leg-row { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
+.leg-row:last-child { margin-bottom: 0; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-dia { width: 8px; height: 8px; transform: rotate(45deg); flex-shrink: 0; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div id="login-box">
+    <h1>RegionMap</h1>
+    <p>Accede con tu usuario y contraseña</p>
+    <div class="field"><label>Usuario</label><input type="text" id="l-user" placeholder="usuario" autocomplete="username"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+    <div id="login-error">Credenciales incorrectas</div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar" style="display:none">
+  <h1>RegionMap</h1>
+  <div class="kpis" id="kpi-bar">
+    <div class="kpi">Países <strong id="k-countries">17</strong></div>
+    <div class="kpi">Proyectos <strong id="k-projects">—</strong></div>
+    <div class="kpi">Clientes <strong id="k-clients">—</strong></div>
+    <div class="kpi">Competidores <strong id="k-comps">—</strong></div>
+  </div>
+  <div id="topbar-right">
+    <span id="user-badge"></span>
+    <button class="btn-sm accent" id="btn-admin" onclick="location.href='/admin'" style="display:none">Configurador</button>
+    <button class="btn-sm" onclick="doLogout()">Salir</button>
+  </div>
+</div>
+
+<!-- TIME BAR -->
+<div id="timebar" style="display:none">
+  <label>Período:</label>
+  <div class="time-mode">
+    <button id="tm-snapshot" class="active" onclick="setTimeMode('snapshot')">Foto</button>
+    <button id="tm-evolution" onclick="setTimeMode('evolution')">Evolución</button>
+  </div>
+  <div class="sep"></div>
+  <label id="lbl-from">Mes/año:</label>
+  <input type="month" id="date-from" oninput="loadMapData()">
+  <span id="to-wrap" style="display:none;align-items:center;gap:.5rem">
+    <label>hasta hoy</label>
+  </span>
+  <div class="sep"></div>
+  <label>Capa activa:</label>
+  <select id="active-layer" onchange="onLayerChange()">
+    <option value="projects">Proyectos</option>
+    <option value="clients">Clientes</option>
+    <option value="segments">Segmentos</option>
+    <option value="country_data">Datos del país</option>
+    <option value="competitors">Competidores</option>
+  </select>
+</div>
+
+<!-- MAIN -->
+<div id="main" style="display:none">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+
+    <!-- Projects filters -->
+    <div class="panel-section" id="lp-projects">
+      <h3>Proyectos — fase</h3>
+      <div class="sub-filter" id="phase-chips">
+        <span class="filter-chip active" data-phase="all">Todos</span>
+        <span class="filter-chip" data-phase="pending">Pendientes</span>
+        <span class="filter-chip" data-phase="contacted">Contactados</span>
+        <span class="filter-chip" data-phase="won">Ganados</span>
+        <span class="filter-chip" data-phase="mature">+3 años</span>
+      </div>
+    </div>
+
+    <!-- Client type filters -->
+    <div class="panel-section" id="lp-clients" style="display:none">
+      <h3>Clientes — tipo</h3>
+      <div id="client-type-chips" class="sub-filter">
+        <span class="filter-chip active" data-ctype="all">Todos</span>
+        <span class="filter-chip" data-ctype="dealer">Dealer</span>
+        <span class="filter-chip" data-ctype="specialized_chain">Cadena esp.</span>
+        <span class="filter-chip" data-ctype="project_manager">Project mgr.</span>
+        <span class="filter-chip" data-ctype="developer">Desarrollador</span>
+        <span class="filter-chip" data-ctype="importer">Importador</span>
+        <span class="filter-chip" data-ctype="installer">Instalador</span>
+      </div>
+    </div>
+
+    <!-- Segments filters -->
+    <div class="panel-section" id="lp-segments" style="display:none">
+      <h3>Segmentos</h3>
+      <div id="segment-chips" class="sub-filter">
+        <span class="filter-chip active" data-seg="all">Todos</span>
+        <span class="filter-chip" data-seg="industry">Industria</span>
+        <span class="filter-chip" data-seg="home">Hogar</span>
+        <span class="filter-chip" data-seg="retail">Retail</span>
+        <span class="filter-chip" data-seg="hospitality">Hospitality</span>
+        <span class="filter-chip" data-seg="data_center">Data center</span>
+        <span class="filter-chip" data-seg="health">Salud</span>
+      </div>
+    </div>
+
+    <!-- Country data info -->
+    <div class="panel-section" id="lp-country_data" style="display:none">
+      <h3>Datos del país</h3>
+      <p style="font-size:.78rem;color:var(--muted)">Haz clic en un país para ver población y PIB.</p>
+    </div>
+
+    <!-- Competitors filters -->
+    <div class="panel-section" id="lp-competitors" style="display:none">
+      <h3>Competidores</h3>
+      <div id="competitor-chips" class="sub-filter"></div>
+    </div>
+
+    <!-- Layer legend -->
+    <div class="panel-section" style="margin-top:auto">
+      <h3>Colores</h3>
+      <div id="dyn-legend"></div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map-container">
+    <svg id="map-svg" viewBox="0 0 680 540"></svg>
+    <div id="tooltip"></div>
+    <div id="legend">
+      <div class="leg-row"><div class="leg-dot" style="background:var(--c-won)"></div>Ganado</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--c-pending)"></div>Pendiente</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--c-contacted)"></div>Contactado</div>
+      <div class="leg-row"><div class="leg-dot" style="background:var(--c-mature)"></div>+3 años</div>
+      <div class="leg-row"><div class="leg-dia" style="background:var(--c-dealer)"></div>Dealer</div>
+    </div>
+    <div id="map-controls">
+      <button class="mc-btn" id="btn-zoom-in"  title="Acercar">＋</button>
+      <button class="mc-btn" id="btn-zoom-out" title="Alejar">－</button>
+      <button class="mc-btn" id="btn-zoom-reset" title="Reset">⊙</button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+    <div id="detail-header">
+      <h2 id="d-country-name">Selecciona un país</h2>
+      <p id="d-country-region"></p>
+    </div>
+    <div id="detail-tabs">
+      <button class="dtab active" onclick="switchTab('projects')">Proyectos</button>
+      <button class="dtab" onclick="switchTab('clients')">Clientes</button>
+      <button class="dtab" onclick="switchTab('segments')">Segmentos</button>
+      <button class="dtab" onclick="switchTab('data')">País</button>
+      <button class="dtab" onclick="switchTab('competitors')">Compet.</button>
+    </div>
+    <div id="detail-body">
+      <div id="detail-empty">Haz clic en un país del mapa para ver su información.</div>
+      <div id="tab-projects"  style="display:none"></div>
+      <div id="tab-clients"   style="display:none"></div>
+      <div id="tab-segments"  style="display:none"></div>
+      <div id="tab-data"      style="display:none"></div>
+      <div id="tab-competitors" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- D3 + TopoJSON -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let TOKEN = localStorage.getItem('rm_token');
+let USER  = JSON.parse(localStorage.getItem('rm_user') || 'null');
+let selectedCountry = null;
+let timeMode = 'snapshot';
+let currentTab = 'projects';
+let activePhase = 'all';
+let activeCtype = 'all';
+let activeSeg   = 'all';
+let activeComp  = 'all';
+let mapData = { projects: [], clients: [], segments: {}, countryData: {}, competitors: [] };
+let zoom, svg, g, projection, path;
+const API = '';  // same-origin
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + url, opts);
+  if (r.status === 401) { doLogout(); return null; }
+  return r.ok ? r.json() : null;
+}
+
+async function doLogin() {
+  const username = document.getElementById('l-user').value.trim();
+  const password = document.getElementById('l-pass').value;
+  const res = await fetch(API + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  if (!res.ok) { document.getElementById('login-error').style.display = 'block'; return; }
+  const data = await res.json();
+  TOKEN = data.token; USER = data.user;
+  localStorage.setItem('rm_token', TOKEN);
+  localStorage.setItem('rm_user', JSON.stringify(USER));
+  showApp();
+}
+
+function doLogout() {
+  localStorage.removeItem('rm_token'); localStorage.removeItem('rm_user');
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('timebar').style.display = 'flex';
+  document.getElementById('main').style.display = 'flex';
+  document.getElementById('user-badge').textContent = USER?.name || USER?.username || '';
+  if (USER?.role === 'admin' || USER?.role === 'editor') {
+    document.getElementById('btn-admin').style.display = 'inline-block';
+  }
+  // Default date = current month
+  const now = new Date();
+  document.getElementById('date-from').value = now.toISOString().slice(0,7);
+  initMap();
+  loadCompetitorChips();
+  loadMapData();
+}
+
+// ── Time mode ──────────────────────────────────────────────────────────────
+function setTimeMode(mode) {
+  timeMode = mode;
+  document.getElementById('tm-snapshot').classList.toggle('active', mode === 'snapshot');
+  document.getElementById('tm-evolution').classList.toggle('active', mode === 'evolution');
+  document.getElementById('to-wrap').style.display = mode === 'evolution' ? 'flex' : 'none';
+  document.getElementById('lbl-from').textContent = mode === 'snapshot' ? 'Mes/año:' : 'Desde:';
+  loadMapData();
+}
+
+function getDateParam() { return document.getElementById('date-from').value || new Date().toISOString().slice(0,7); }
+
+// ── Layer switching ────────────────────────────────────────────────────────
+function onLayerChange() {
+  const layer = document.getElementById('active-layer').value;
+  ['projects','clients','segments','country_data','competitors'].forEach(l => {
+    const el = document.getElementById('lp-' + l);
+    if (el) el.style.display = l === layer ? '' : 'none';
+  });
+  renderMapMarkers();
+  updateLegend();
+}
+
+// ── Load all data ──────────────────────────────────────────────────────────
+async function loadMapData() {
+  const date = getDateParam();
+  const [projects, clients, projSummary] = await Promise.all([
+    api('GET', `/api/projects?date=${date}`),
+    api('GET', `/api/clients?date=${date}`),
+    api('GET', `/api/projects/summary/all?date=${date}`)
+  ]);
+  mapData.projects = projects || [];
+  mapData.clients  = clients  || [];
+  mapData.projSummary = {};
+  (projSummary || []).forEach(r => {
+    if (!mapData.projSummary[r.country_code]) mapData.projSummary[r.country_code] = {};
+    mapData.projSummary[r.country_code][r.phase || 'pending'] = r.count;
+  });
+  // KPI counts
+  document.getElementById('k-projects').textContent = mapData.projects.length;
+  document.getElementById('k-clients').textContent  = mapData.clients.length;
+  renderMapMarkers();
+  updateCountryFills();
+  if (selectedCountry) loadCountryDetail(selectedCountry);
+}
+
+// ── MAP INIT ───────────────────────────────────────────────────────────────
+const COUNTRIES_FILL = {
+  MEX:'#b8d4ec', GTM:'#c2e0c4', BLZ:'#d8ccf0', SLV:'#f5edbc',
+  HND:'#c2e0c4', NIC:'#c2e0c4', CRI:'#b8d4ec', PAN:'#f5edbc',
+  COL:'#ffd9a8', DOM:'#b8d4ec', PRI:'#c2e0c4', JAM:'#f5edbc',
+  TTO:'#d8ccf0', BHS:'#b8d4ec', BRB:'#c2e0c4', ABW:'#f5edbc', CUW:'#d8ccf0'
+};
+const ISLAND_DEFS = [
+  { key:'JAM', type:'ellipse', cx:358, cy:289, rx:22,ry:10 },
+  { key:'PRI', type:'rect',    x:455,  y:257,  w:34, h:16  },
+  { key:'BRB', type:'circle',  cx:498, cy:339, r:8         },
+  { key:'TTO', type:'ellipse', cx:432, cy:393, rx:18,ry:11 },
+  { key:'ABW', type:'ellipse', cx:346, cy:383, rx:8, ry:5  },
+  { key:'CUW', type:'ellipse', cx:364, cy:386, rx:10,ry:5  },
+  { key:'BHS', type:'ellipse', cx:374, cy:194, rx:14,ry:8  },
+];
+const COUNTRY_LABELS = [
+  {code:'MEX',text:'México',       x:158,y:172},{code:'GTM',text:'Guatemala',   x:186,y:244},
+  {code:'BLZ',text:'Belice',       x:220,y:224},{code:'HND',text:'Honduras',    x:228,y:259},
+  {code:'SLV',text:'El Salvador',  x:200,y:278},{code:'NIC',text:'Nicaragua',   x:218,y:305},
+  {code:'CRI',text:'Costa Rica',   x:210,y:344},{code:'PAN',text:'Panamá',      x:250,y:375},
+  {code:'COL',text:'Colombia',     x:290,y:438},{code:'DOM',text:'R. Dominicana',x:418,y:252},
+];
+const ID_TO_ISO = {484:'MEX',320:'GTM',84:'BLZ',340:'HND',222:'SLV',558:'NIC',188:'CRI',591:'PAN',170:'COL',214:'DOM',630:'PRI',388:'JAM',780:'TTO',44:'BHS',52:'BRB'};
+
+function initMap() {
+  svg  = d3.select('#map-svg');
+  zoom = d3.zoom().scaleExtent([.7,8]).on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoom);
+  g = svg.append('g');
+
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world => {
+    const features = topojson.feature(world, world.objects.countries).features;
+    const targets  = features.filter(f => ID_TO_ISO[+f.id]);
+    const proj = d3.geoMercator().center([-74,16]).scale(880).translate([310,270]);
+    path = d3.geoPath(proj);
+
+    g.append('rect').attr('width',680).attr('height',540).attr('fill','#c8dff0').attr('pointer-events','none');
+
+    // Continental countries
+    g.selectAll('.country-path')
+      .data(targets)
+      .join('path')
+      .attr('class','country-path')
+      .attr('d', path)
+      .attr('fill', d => COUNTRIES_FILL[ID_TO_ISO[+d.id]] || '#ddd')
+      .on('click', (e,d) => selectCountry(ID_TO_ISO[+d.id]))
+      .on('mouseenter', (e,d) => showCountryTip(e, ID_TO_ISO[+d.id]))
+      .on('mousemove', moveTip)
+      .on('mouseleave', hideTip);
+
+    // Islands
+    ISLAND_DEFS.forEach(s => {
+      let el;
+      if      (s.type==='ellipse') el = g.append('ellipse').attr('cx',s.cx).attr('cy',s.cy).attr('rx',s.rx).attr('ry',s.ry);
+      else if (s.type==='circle')  el = g.append('circle').attr('cx',s.cx).attr('cy',s.cy).attr('r',s.r);
+      else                         el = g.append('rect').attr('x',s.x).attr('y',s.y).attr('width',s.w).attr('height',s.h).attr('rx',2);
+      el.attr('class','island-el').attr('id','island-'+s.key)
+        .attr('fill', COUNTRIES_FILL[s.key]||'#ddd')
+        .on('click', () => selectCountry(s.key))
+        .on('mouseenter', e => showCountryTip(e, s.key))
+        .on('mousemove', moveTip).on('mouseleave', hideTip);
+    });
+
+    // Country labels
+    COUNTRY_LABELS.forEach(l => {
+      g.append('text').attr('x',l.x).attr('y',l.y)
+        .attr('text-anchor','middle').attr('font-size',l.code==='MEX'||l.code==='COL'?9:7.5)
+        .attr('fill','#3a3a3a').attr('font-weight','600').attr('pointer-events','none').text(l.text);
+    });
+    g.append('text').attr('x',358).attr('y',298).attr('text-anchor','middle').attr('font-size',6.5).attr('fill','#444').attr('pointer-events','none').text('Jamaica');
+    g.append('text').attr('x',472).attr('y',252).attr('text-anchor','middle').attr('font-size',6.5).attr('fill','#444').attr('pointer-events','none').text('Puerto Rico');
+    g.append('text').attr('x',498).attr('y',329).attr('text-anchor','middle').attr('font-size',6).attr('fill','#444').attr('pointer-events','none').text('Barbados');
+    g.append('text').attr('x',432).attr('y',382).attr('text-anchor','middle').attr('font-size',6).attr('fill','#444').attr('pointer-events','none').text('Trinidad');
+    g.append('text').attr('x',355).attr('y',394).attr('text-anchor','middle').attr('font-size',6).attr('fill','#555').attr('pointer-events','none').text('Aruba/Curazao');
+    g.append('text').attr('x',374).attr('y',184).attr('text-anchor','middle').attr('font-size',6.5).attr('fill','#444').attr('pointer-events','none').text('Bahamas');
+
+    g.append('g').attr('id','markers-layer');
+    document.getElementById('btn-zoom-in').onclick  = () => svg.transition().call(zoom.scaleBy, 1.4);
+    document.getElementById('btn-zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
+    document.getElementById('btn-zoom-reset').onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
+  });
+}
+
+// ── Country tint based on project count ───────────────────────────────────
+function updateCountryFills() {
+  const counts = {};
+  mapData.projects.forEach(p => { counts[p.country_code] = (counts[p.country_code]||0) + 1; });
+  const max = Math.max(1, ...Object.values(counts));
+  const scl = d3.scaleLinear([0,max],['#e8f4fd','#1e40af']);
+
+  d3.selectAll('.country-path').attr('fill', d => {
+    const iso = ID_TO_ISO[+d.id];
+    return scl(counts[iso]||0);
+  });
+  ISLAND_DEFS.forEach(s => {
+    d3.select('#island-'+s.key).attr('fill', scl(counts[s.key]||0));
+  });
+}
+
+// ── Render markers ─────────────────────────────────────────────────────────
+const PHASE_COLOR = { pending:'#f59e0b', contacted:'#3b82f6', won:'#10b981', mature:'#8b5cf6' };
+const TYPE_COLOR  = { dealer:'#f97316', specialized_chain:'#ec4899', project_manager:'#06b6d4', developer:'#84cc16', importer:'#a78bfa', installer:'#fb7185' };
+
+// Rough pixel positions per country centroid (matches island defs)
+const COUNTRY_PX = {
+  MEX:{x:160,y:165}, GTM:{x:188,y:242}, BLZ:{x:222,y:220}, HND:{x:228,y:255},
+  SLV:{x:202,y:272}, NIC:{x:220,y:300}, CRI:{x:213,y:340}, PAN:{x:250,y:372},
+  COL:{x:288,y:435}, DOM:{x:416,y:260}, PRI:{x:472,y:265}, JAM:{x:358,y:289},
+  TTO:{x:432,y:393}, BHS:{x:374,y:194}, BRB:{x:498,y:339}, ABW:{x:346,y:383}, CUW:{x:364,y:386}
+};
+
+function renderMapMarkers() {
+  const layer = document.getElementById('active-layer').value;
+  const ml = d3.select('#markers-layer');
+  ml.selectAll('*').remove();
+
+  if (layer === 'projects') renderProjectMarkers(ml);
+  else if (layer === 'clients') renderClientMarkers(ml);
+  else if (layer === 'segments') renderSegmentMarkers(ml);
+}
+
+function renderProjectMarkers(ml) {
+  const filtered = mapData.projects.filter(p => activePhase === 'all' || p.phase === activePhase);
+  // Group by country for bubble
+  const byCountry = {};
+  filtered.forEach(p => {
+    if (!byCountry[p.country_code]) byCountry[p.country_code] = [];
+    byCountry[p.country_code].push(p);
+  });
+
+  Object.entries(byCountry).forEach(([code, projs]) => {
+    const pos = COUNTRY_PX[code]; if (!pos) return;
+    const r = Math.min(22, 8 + projs.length * 2.5);
+    const dominated = projs.reduce((acc,p)=>{ acc[p.phase]=(acc[p.phase]||0)+1; return acc; }, {});
+    const topPhase = Object.entries(dominated).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'pending';
+    const grp = ml.append('g').style('cursor','pointer')
+      .on('click',() => selectCountry(code))
+      .on('mouseenter', e => {
+        const lines = projs.slice(0,4).map(p=>`<div class="t-row"><span>${p.name}</span><span class="badge ${p.phase||'pending'}">${p.phase||'—'}</span></div>`).join('');
+        tip(e,`<h4>${code} — ${projs.length} proy.</h4>${lines}${projs.length>4?'<div style="color:var(--muted);font-size:.72rem">…y más</div>':''}`);
+      })
+      .on('mousemove', moveTip).on('mouseleave', hideTip);
+    grp.append('circle').attr('cx',pos.x).attr('cy',pos.y).attr('r',r+2).attr('fill','white').attr('opacity',.6);
+    grp.append('circle').attr('cx',pos.x).attr('cy',pos.y).attr('r',r).attr('fill',PHASE_COLOR[topPhase]||'#6b7280').attr('opacity',.85);
+    grp.append('text').attr('x',pos.x).attr('y',pos.y+4).attr('text-anchor','middle').attr('font-size',10).attr('fill','white').attr('font-weight','700').text(projs.length);
+  });
+}
+
+function renderClientMarkers(ml) {
+  const filtered = mapData.clients.filter(c => activeCtype === 'all' || c.client_type === activeCtype);
+  filtered.forEach(c => {
+    const pos = COUNTRY_PX[c.country_code]; if (!pos) return;
+    const jx = pos.x + (Math.random()-.5)*30, jy = pos.y + (Math.random()-.5)*30;
+    const col = TYPE_COLOR[c.client_type] || '#6b7280';
+    const grp = ml.append('g').style('cursor','pointer')
+      .on('click', () => selectCountry(c.country_code))
+      .on('mouseenter', e => tip(e, `<h4>${c.name}</h4><div class="t-row"><span class="t-key">Tipo</span><span>${c.client_type}</span></div>`))
+      .on('mousemove', moveTip).on('mouseleave', hideTip);
+    grp.append('rect').attr('x',jx-6).attr('y',jy-6).attr('width',12).attr('height',12)
+      .attr('transform',`rotate(45,${jx},${jy})`).attr('fill',col).attr('stroke','white').attr('stroke-width',1.5);
+  });
+}
+
+function renderSegmentMarkers(ml) {
+  // Show country circles sized by number of active segments
+  const date = getDateParam();
+  Object.keys(COUNTRY_PX).forEach(async code => {
+    const segs = await api('GET', `/api/countries/${code}/segments?date=${date}`);
+    if (!segs) return;
+    const segFields = ['industry','home','retail','hospitality','data_center','health'];
+    const count = segFields.filter(s=>segs[s]).length;
+    if (!count) return;
+    const pos = COUNTRY_PX[code];
+    ml.append('circle').attr('cx',pos.x).attr('cy',pos.y).attr('r',6+count*2)
+      .attr('fill','#0d9488').attr('opacity',.7).attr('stroke','white').attr('stroke-width',1);
+    ml.append('text').attr('x',pos.x).attr('y',pos.y+4).attr('text-anchor','middle')
+      .attr('font-size',9).attr('fill','white').attr('font-weight','600').text(count);
+  });
+}
+
+// ── Tooltip ────────────────────────────────────────────────────────────────
+const COUNTRY_NAMES = {MEX:'México',GTM:'Guatemala',BLZ:'Belice',SLV:'El Salvador',HND:'Honduras',NIC:'Nicaragua',CRI:'Costa Rica',PAN:'Panamá',COL:'Colombia',DOM:'República Dominicana',PRI:'Puerto Rico',JAM:'Jamaica',TTO:'Trinidad y Tobago',BHS:'Bahamas',BRB:'Barbados',ABW:'Aruba',CUW:'Curazao'};
+
+function showCountryTip(e, code) {
+  const name = COUNTRY_NAMES[code] || code;
+  const ps = mapData.projSummary[code] || {};
+  const total = Object.values(ps).reduce((a,b)=>a+b,0);
+  const clients = mapData.clients.filter(c=>c.country_code===code).length;
+  tip(e, `<h4>${name}</h4><div class="t-row"><span class="t-key">Proyectos</span><span>${total}</span></div><div class="t-row"><span class="t-key">Clientes</span><span>${clients}</span></div>`);
+}
+
+function tip(e, html) {
+  const t = document.getElementById('tooltip');
+  t.innerHTML = html; t.style.display = 'block'; moveTip(e);
+}
+function moveTip(e) {
+  const r = document.getElementById('map-container').getBoundingClientRect();
+  const t = document.getElementById('tooltip');
+  let lx = e.clientX - r.left + 14, ly = e.clientY - r.top - 20;
+  if (lx + 230 > r.width) lx = e.clientX - r.left - 240;
+  if (ly < 0) ly = 10;
+  t.style.left = lx + 'px'; t.style.top = ly + 'px';
+}
+function hideTip() { document.getElementById('tooltip').style.display = 'none'; }
+
+// ── Country detail panel ───────────────────────────────────────────────────
+async function selectCountry(code) {
+  selectedCountry = code;
+  d3.selectAll('.country-path').classed('selected', d => ID_TO_ISO[+d.id] === code);
+  ISLAND_DEFS.forEach(s => d3.select('#island-'+s.key).classed('selected', s.key===code));
+  document.getElementById('d-country-name').textContent = COUNTRY_NAMES[code] || code;
+  document.getElementById('detail-empty').style.display = 'none';
+  loadCountryDetail(code);
+}
+
+async function loadCountryDetail(code) {
+  const date = getDateParam();
+  switchTab(currentTab, code);
+}
+
+function switchTab(tab, code) {
+  currentTab = tab;
+  code = code || selectedCountry;
+  document.querySelectorAll('.dtab').forEach((b,i) => b.classList.toggle('active', ['projects','clients','segments','data','competitors'][i]===tab));
+  ['projects','clients','segments','data','competitors'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab ? '' : 'none';
+  });
+  if (!code) return;
+  const date = getDateParam();
+  if      (tab==='projects')    renderTabProjects(code, date);
+  else if (tab==='clients')     renderTabClients(code, date);
+  else if (tab==='segments')    renderTabSegments(code, date);
+  else if (tab==='data')        renderTabData(code, date);
+  else if (tab==='competitors') renderTabCompetitors(code, date);
+}
+
+async function renderTabProjects(code, date) {
+  const el = document.getElementById('tab-projects');
+  const projs = mapData.projects.filter(p => p.country_code === code);
+  if (!projs.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">Sin proyectos para este período.</div>'; return; }
+  
+  let html = '';
+  if (timeMode === 'evolution') {
+    // Show phase changes per project
+    for (const p of projs) {
+      const hist = await api('GET', `/api/projects/${p.id}/history`);
+      const histHtml = (hist||[]).map(h => `<span class="badge ${h.phase}">${h.snapshot_date}: ${h.phase}</span> `).join('');
+      html += `<div class="item-card"><div class="ic-name">${p.name}</div><div class="ic-meta">${histHtml}</div></div>`;
+    }
+  } else {
+    projs.forEach(p => {
+      html += `<div class="item-card">
+        <div class="ic-name">${p.name} <span class="badge ${p.phase||'pending'}">${p.phase||'pendiente'}</span></div>
+        <div class="ic-meta">${p.client_name||''} ${p.value_usd?'· $'+Number(p.value_usd).toLocaleString():''}</div>
+      </div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+async function renderTabClients(code, date) {
+  const el = document.getElementById('tab-clients');
+  const cls = mapData.clients.filter(c => c.country_code === code);
+  if (!cls.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">Sin clientes para este período.</div>'; return; }
+  
+  const grouped = {};
+  cls.forEach(c => { if(!grouped[c.client_type]) grouped[c.client_type]=[]; grouped[c.client_type].push(c); });
+  let html = '';
+  Object.entries(grouped).forEach(([type, list]) => {
+    html += `<div class="detail-section"><h4>${type.replace('_',' ')}</h4>`;
+    list.forEach(c => {
+      let extra = '';
+      if (type === 'dealer') {
+        extra = `Stock: ${c.has_stock ? '✅' : '❌'} · Vendedores: ${c.num_salespeople||0}`;
+      }
+      html += `<div class="item-card"><div class="ic-name">${c.name}</div><div class="ic-meta">${extra || (c.contact_name||'')}</div></div>`;
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+async function renderTabSegments(code, date) {
+  const el = document.getElementById('tab-segments');
+  const segs = await api('GET', `/api/countries/${code}/segments?date=${date}`);
+
+  if (timeMode === 'evolution') {
+    const hist = await api('GET', `/api/countries/${code}/segments/history`);
+    if (!hist || !hist.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem">Sin historial.</div>'; return; }
+    const fields = ['industry','home','retail','hospitality','data_center','health'];
+    let html = '<table style="width:100%;font-size:.72rem;border-collapse:collapse"><thead><tr><th>Mes</th>'+fields.map(f=>`<th>${f.slice(0,3)}</th>`).join('')+'</tr></thead><tbody>';
+    hist.forEach(h => {
+      html += `<tr><td style="white-space:nowrap">${h.snapshot_date}</td>`+fields.map(f=>`<td style="text-align:center">${h[f]?'✅':'—'}</td>`).join('')+'</tr>';
+    });
+    el.innerHTML = html + '</tbody></table>';
+    return;
+  }
+
+  const fields = ['industry','home','retail','hospitality','data_center','health'];
+  const labels = { industry:'Industria', home:'Hogar', retail:'Retail', hospitality:'Hospitality', data_center:'Data Center', health:'Salud' };
+  const html = '<div class="seg-grid">' + fields.map(f =>
+    `<div class="seg-tag ${segs&&segs[f]?'on':'off'}">${labels[f]}</div>`
+  ).join('') + '</div>' + (segs?.notes ? `<div style="margin-top:.5rem;font-size:.75rem;color:var(--muted)">${segs.notes}</div>` : '');
+  el.innerHTML = html;
+}
+
+async function renderTabData(code, date) {
+  const el = document.getElementById('tab-data');
+  const d = await api('GET', `/api/countries/${code}/data?date=${date}`);
+
+  if (timeMode === 'evolution') {
+    const hist = await api('GET', `/api/countries/${code}/data/history`);
+    if (!hist||!hist.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem">Sin historial.</div>'; return; }
+    let html = '<div class="detail-section"><h4>Evolución</h4>';
+    hist.forEach(h => {
+      html += `<div class="data-row"><span class="data-key">${h.snapshot_date}</span><span class="data-val">Pob: ${(h.population||0).toLocaleString()} · PIB: $${(h.gdp_usd||0).toLocaleString()}M</span></div>`;
+    });
+    el.innerHTML = html + '</div>';
+    return;
+  }
+
+  if (!d) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">Sin datos registrados.</div>'; return; }
+  el.innerHTML = `<div class="detail-section"><h4>Economía</h4>
+    <div class="data-row"><span class="data-key">Población</span><span class="data-val">${(d.population||0).toLocaleString()}</span></div>
+    <div class="data-row"><span class="data-key">PIB</span><span class="data-val">$${(d.gdp_usd||0).toLocaleString()}M USD</span></div>
+    <div class="data-row"><span class="data-key">Registro</span><span class="data-val">${d.snapshot_date}</span></div>
+    ${d.notes?`<div class="data-row"><span class="data-key">Notas</span><span class="data-val">${d.notes}</span></div>`:''}
+  </div>`;
+}
+
+async function renderTabCompetitors(code, date) {
+  const el = document.getElementById('tab-competitors');
+  const comps = await api('GET', `/api/countries/${code}/competitors?date=${date}`);
+
+  if (timeMode === 'evolution') {
+    const hist = await api('GET', `/api/countries/${code}/competitors/history`);
+    if (!hist||!hist.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem">Sin historial.</div>'; return; }
+    const byComp = {};
+    hist.forEach(h => {
+      if (!byComp[h.competitor_name]) byComp[h.competitor_name]=[];
+      byComp[h.competitor_name].push(h);
+    });
+    let html = '';
+    Object.entries(byComp).forEach(([name, rows]) => {
+      html += `<div class="detail-section"><h4>${name}</h4>`;
+      rows.forEach(r => {
+        const flags = [r.direct_presence&&'Presencia directa',r.seller_factory&&'Vende fábrica',r.through_dealers&&'Dealers',r.stock_in_country&&'Stock'].filter(Boolean).join(' · ');
+        html += `<div class="data-row"><span class="data-key">${r.snapshot_date}</span><span class="data-val" style="font-size:.72rem">${flags||'Sin presencia'}</span></div>`;
+      });
+      html += '</div>';
+    });
+    el.innerHTML = html || '<div style="color:var(--muted);font-size:.8rem">Sin historial.</div>';
+    return;
+  }
+
+  if (!comps||!comps.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:.5rem 0">Sin competidores registrados.</div>'; return; }
+  let html = '';
+  comps.forEach(c => {
+    const flags = [
+      c.direct_presence  && '<span class="comp-icon ok">Presencia directa</span>',
+      c.seller_factory   && '<span class="comp-icon ok">Vende fábrica</span>',
+      c.through_dealers  && '<span class="comp-icon">Dealers</span>',
+      c.stock_in_country && '<span class="comp-icon">Stock país</span>',
+    ].filter(Boolean).join(' ');
+    html += `<div class="comp-row"><strong style="flex:1;font-size:.8rem">${c.competitor_name}</strong>${flags||'<span style="color:var(--muted);font-size:.72rem">Sin presencia</span>'}</div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ── Competitor chips in sidebar ────────────────────────────────────────────
+async function loadCompetitorChips() {
+  const comps = await api('GET', '/api/countries/competitors/all');
+  document.getElementById('k-comps').textContent = (comps||[]).length;
+  const el = document.getElementById('competitor-chips');
+  el.innerHTML = '<span class="filter-chip active" data-comp="all">Todos</span>' +
+    (comps||[]).map(c=>`<span class="filter-chip" data-comp="${c.id}">${c.name}</span>`).join('');
+  el.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.onclick = () => {
+      el.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      activeComp = chip.dataset.comp;
+    };
+  });
+}
+
+// ── Chip filters wiring ────────────────────────────────────────────────────
+document.getElementById('phase-chips').querySelectorAll('.filter-chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('#phase-chips .filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    activePhase = chip.dataset.phase;
+    renderMapMarkers();
+  };
+});
+document.getElementById('client-type-chips').querySelectorAll('.filter-chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('#client-type-chips .filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    activeCtype = chip.dataset.ctype;
+    renderMapMarkers();
+  };
+});
+
+// ── Legend ─────────────────────────────────────────────────────────────────
+function updateLegend() {
+  const layer = document.getElementById('active-layer').value;
+  const el = document.getElementById('dyn-legend');
+  if (layer === 'projects') {
+    el.innerHTML = Object.entries(PHASE_COLOR).map(([k,v])=>
+      `<div class="leg-row"><div class="leg-dot" style="background:${v}"></div><span style="font-size:.75rem">${k}</span></div>`).join('');
+  } else if (layer === 'clients') {
+    const labels = {dealer:'Dealer',specialized_chain:'Cadena',project_manager:'Proj.Mgr',developer:'Developer',importer:'Importador',installer:'Instalador'};
+    el.innerHTML = Object.entries(TYPE_COLOR).map(([k,v])=>
+      `<div class="leg-row"><div class="leg-dia" style="background:${v}"></div><span style="font-size:.75rem">${labels[k]}</span></div>`).join('');
+  } else {
+    el.innerHTML = '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+  }
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+if (TOKEN) {
+  fetch(API + '/api/auth/me', { headers: { Authorization: 'Bearer ' + TOKEN } })
+    .then(r => r.ok ? r.json() : null)
+    .then(user => { if (user) { USER = user; showApp(); } })
+    .catch(() => {});
+}
+document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+updateLegend();
+</script>
+</body>
+</html>
