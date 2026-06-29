@@ -13,6 +13,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Faltan credenciales' });
 
     const user = await db.q1('SELECT * FROM users WHERE username = $1', [username]);
+    console.log('USER FOUND:', !!user, 'PASS CHECK:', user ? bcrypt.compareSync(password, user.password) : false);
     if (!user || !bcrypt.compareSync(password, user.password))
       return res.status(401).json({ error: 'Credenciales incorrectas' });
 
@@ -22,7 +23,10 @@ router.post('/login', async (req, res) => {
       { expiresIn: '8h' }
     );
     res.json({ token, user: { id: user.id, username: user.username, role: user.role, name: user.name } });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.log('LOGIN ERROR:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // GET /api/auth/me
